@@ -5,7 +5,7 @@ use kernel::{
     self, file, miscdev,
     prelude::*,
     str,
-    sync::{Arc, ArcBorrow},
+    sync::{smutex::Mutex, Arc, ArcBorrow},
 };
 
 module! {
@@ -18,7 +18,7 @@ module! {
 
 struct Device {
     number: usize,
-    contents: Vec<u8>,
+    contents: Mutex<Vec<u8>>,
 }
 
 struct Scull {
@@ -30,7 +30,7 @@ impl kernel::Module for Scull {
         pr_info!("Hello, world! from scull.rs");
         let dev = Arc::try_new(Device {
             number: 0,
-            contents: Vec::new(),
+            contents: Mutex::new(Vec::new()),
         })?;
         let reg = miscdev::Registration::new_pinned(fmt!("scull"), dev)?;
 
@@ -57,11 +57,16 @@ impl file::Operations for Scull {
     fn read(
         data: ArcBorrow<'_, Device>,
         _file: &file::File,
-        _writer: &mut impl kernel::io_buffer::IoBufferWriter,
-        _offset: u64,
+        writer: &mut impl kernel::io_buffer::IoBufferWriter,
+        offset: u64,
     ) -> Result<usize> {
         pr_info!("file for device {} read", data.number);
-        Ok(0)
+
+        let offset = offset.try_into()?;
+        let contents = data.contents.lock();
+        let len = core::cmp::min(writer.len(), contents.len().saturating_sub(offset));
+        writer.write_slice(&contents[offset..][..len])?;
+        Ok(len)
     }
 
     fn write(
@@ -71,9 +76,10 @@ impl file::Operations for Scull {
         _offset: u64,
     ) -> Result<usize> {
         pr_info!("file for device {} written", data.number);
-        // NOTE: This should fail => Borrow checker is working
+
         let copy = reader.read_all()?;
-        data.contents = copy;
-        Ok(copy.len())
+        let len = copy.len();
+        *data.contents.lock() = copy;
+        Ok(len)
     }
 }
