@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 //! Rust scull module.
 
-use kernel::{self, file, prelude::*, str};
+use kernel::{self, file, miscdev, prelude::*, str};
 
 module! {
     type: Scull,
@@ -11,12 +11,16 @@ module! {
     license: "GPL",
 }
 
-struct Scull;
+struct Scull {
+    _dev: Pin<Box<miscdev::Registration<Self>>>,
+}
 
 impl kernel::Module for Scull {
     fn init(_name: &'static str::CStr, _module: &'static ThisModule) -> Result<Self> {
         pr_info!("Hello, world! from scull.rs");
-        Ok(Scull)
+        let reg = miscdev::Registration::new_pinned(fmt!("Scull"), ())?;
+
+        Ok(Scull { _dev: reg })
     }
 }
 
