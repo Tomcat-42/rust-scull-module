@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 //! Rust scull module.
 
-use kernel::{self, prelude::*, str};
+use kernel::{self, file, prelude::*, str};
 
 module! {
     type: Scull,
@@ -23,5 +23,13 @@ impl kernel::Module for Scull {
 impl Drop for Scull {
     fn drop(&mut self) {
         pr_info!("Goodbye, world! from scull.rs");
+    }
+}
+
+#[vtable]
+impl file::Operations for Scull {
+    fn open(_context: &Self::OpenData, _file: &file::File) -> Result<Self::Data> {
+        pr_info!("open");
+        Ok(())
     }
 }

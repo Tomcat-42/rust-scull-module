@@ -1,2 +1,23 @@
+# SPDX-License-Identifier: GPL-2.0
+
+.*
+*.ko
+*.mod
+*.mod.c
+*.o
+*.rmeta
+Module.symvers
+modules.order
 rust-project.json
-*.d
+
+
+# Added by cargo
+
+/target
+
+
+# Added by cargo
+#
+# already existing elements were commented out
+
+#/target
