@@ -49,8 +49,13 @@ impl file::Operations for Scull {
     type Data = Arc<Device>;
     type OpenData = Arc<Device>;
 
-    fn open(context: &Self::OpenData, _file: &file::File) -> Result<Self::Data> {
+    fn open(context: &Self::OpenData, file: &file::File) -> Result<Self::Data> {
         pr_info!("file for device {} opened", context.number);
+
+        if file.flags() & file::flags::O_ACCMODE == file::flags::O_RDONLY {
+            context.contents.lock().clear();
+        }
+
         Ok(context.clone())
     }
 
@@ -73,13 +78,20 @@ impl file::Operations for Scull {
         data: ArcBorrow<'_, Device>,
         _file: &file::File,
         reader: &mut impl kernel::io_buffer::IoBufferReader,
-        _offset: u64,
+        offset: u64,
     ) -> Result<usize> {
         pr_info!("file for device {} written", data.number);
+        let offset = offset.try_into()?;
+        let len = reader.len();
+        let new_len = len.checked_add(offset).ok_or(EINVAL)?;
+        let mut vec = data.contents.lock();
 
-        let copy = reader.read_all()?;
-        let len = copy.len();
-        *data.contents.lock() = copy;
+        if new_len > vec.len() {
+            vec.try_resize(new_len, 0)?;
+        }
+
+        reader.read_slice(&mut vec[offset..][..len])?;
+
         Ok(len)
     }
 }
