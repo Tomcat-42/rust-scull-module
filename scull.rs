@@ -18,7 +18,7 @@ struct Scull {
 impl kernel::Module for Scull {
     fn init(_name: &'static str::CStr, _module: &'static ThisModule) -> Result<Self> {
         pr_info!("Hello, world! from scull.rs");
-        let reg = miscdev::Registration::new_pinned(fmt!("Scull"), ())?;
+        let reg = miscdev::Registration::new_pinned(fmt!("scull"), ())?;
 
         Ok(Scull { _dev: reg })
     }
@@ -35,5 +35,15 @@ impl file::Operations for Scull {
     fn open(_context: &Self::OpenData, _file: &file::File) -> Result<Self::Data> {
         pr_info!("open");
         Ok(())
+    }
+
+    fn read(
+        _data: <Self::Data as kernel::ForeignOwnable>::Borrowed<'_>,
+        _file: &file::File,
+        _writer: &mut impl kernel::io_buffer::IoBufferWriter,
+        _offset: u64,
+    ) -> Result<usize> {
+        pr_info!("read");
+        Ok(0)
     }
 }
