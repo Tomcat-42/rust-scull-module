@@ -18,6 +18,7 @@ module! {
 
 struct Device {
     number: usize,
+    contents: Vec<u8>,
 }
 
 struct Scull {
@@ -27,7 +28,10 @@ struct Scull {
 impl kernel::Module for Scull {
     fn init(_name: &'static str::CStr, _module: &'static ThisModule) -> Result<Self> {
         pr_info!("Hello, world! from scull.rs");
-        let dev = Arc::try_new(Device { number: 0 })?;
+        let dev = Arc::try_new(Device {
+            number: 0,
+            contents: Vec::new(),
+        })?;
         let reg = miscdev::Registration::new_pinned(fmt!("scull"), dev)?;
 
         Ok(Scull { _dev: reg })
@@ -67,6 +71,9 @@ impl file::Operations for Scull {
         _offset: u64,
     ) -> Result<usize> {
         pr_info!("file for device {} written", data.number);
-        Ok(reader.len())
+        // NOTE: This should fail => Borrow checker is working
+        let copy = reader.read_all()?;
+        data.contents = copy;
+        Ok(copy.len())
     }
 }
