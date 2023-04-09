@@ -14,6 +14,13 @@ module! {
     author: "PAblo Alessandro Santos Hugen",
     description: "Rust scull module",
     license: "GPL",
+    params: {
+        nr_devs: usize {
+            default: 4,
+            permissions: 0o644,
+            description: "Number of devices to create",
+        },
+    },
 }
 
 struct Device {
@@ -22,19 +29,28 @@ struct Device {
 }
 
 struct Scull {
-    _dev: Pin<Box<miscdev::Registration<Self>>>,
+    _devs: Vec<Pin<Box<miscdev::Registration<Self>>>>,
 }
 
 impl kernel::Module for Scull {
-    fn init(_name: &'static str::CStr, _module: &'static ThisModule) -> Result<Self> {
-        pr_info!("Hello, world! from scull.rs");
-        let dev = Arc::try_new(Device {
-            number: 0,
-            contents: Mutex::new(Vec::new()),
-        })?;
-        let reg = miscdev::Registration::new_pinned(fmt!("scull"), dev)?;
+    fn init(name: &'static str::CStr, module: &'static ThisModule) -> Result<Self> {
+        pr_info!("Hello, world! from {}", name.to_str()?);
+        let count = {
+            let lock = module.kernel_param_lock();
+            *nr_devs.read(&lock)
+        };
+        let mut devs = Vec::try_with_capacity(count)?;
 
-        Ok(Scull { _dev: reg })
+        for i in 0..count {
+            let dev = Arc::try_new(Device {
+                number: i,
+                contents: Mutex::new(Vec::new()),
+            })?;
+            let reg = miscdev::Registration::new_pinned(fmt!("scull{}", i), dev)?;
+            devs.try_push(reg)?;
+        }
+
+        Ok(Scull { _devs: devs })
     }
 }
 
